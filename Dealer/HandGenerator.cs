@@ -11,7 +11,7 @@ class HandGenerator
     public (Hand North, Hand East, Hand South, Hand West) CreateHands()
     {
         Shuffle();
-        return (new Hand(_deck[0..12]), new Hand(_deck[13..25]), new Hand(_deck[26..38]), new Hand(_deck[39..51]));
+        return (new Hand(_deck[0..13]), new Hand(_deck[13..26]), new Hand(_deck[26..39]), new Hand(_deck[39..52]));
     }
 
     private static IEnumerable<Card> CreateDeck()

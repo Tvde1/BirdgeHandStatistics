@@ -1,4 +1,5 @@
 ﻿using Dealer.Enums;
+using System.Diagnostics;
 
 namespace Dealer.Entities;
 
@@ -9,6 +10,7 @@ struct Hand
     public Hand(Memory<Card> cards)
     {
         Cards = cards;
+        Debug.Assert(cards.Length == 13);
 
         var totalPoints = 0;
 
