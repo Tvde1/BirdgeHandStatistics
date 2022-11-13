@@ -95,4 +95,10 @@ public readonly record struct SuitCounts
         suit = default;
         return false;
     }
+
+    internal (byte, byte, byte, byte) ToTuple()
+    {
+        Deconstruct(out var a, out var b, out var c, out var d);
+        return (a, b, c, d);
+    }
 }
