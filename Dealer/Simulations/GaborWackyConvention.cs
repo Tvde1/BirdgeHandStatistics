@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Dealer.Simulations;
 
@@ -6,65 +7,56 @@ internal class GaborWackyConvention
 {
     public static void Run()
     {
-        var data = new List<SimData>();
-
         var sw = Stopwatch.StartNew();
 
-        Parallel.For(0, 50, x =>
+        var calc = Calculator.Create((HandGenerator deckSim, SimResult simData) =>
         {
-            var calc = Calculator.Create((HandGenerator deckSim, SimData simData) =>
+            simData.TotalHands++;
+            var (north, _, south, _) = deckSim.CreateHands();
+
+            var hasEnoughPoints = south.Points is >= 4 and <= 11;
+
+            if (!hasEnoughPoints)
             {
-                simData.TotalHands++;
-                var (north, _, south, _) = deckSim.CreateHands();
+                return;
+            }
 
-                var hasEnoughPoints = south.Points is >= 4 and <= 11;
+            var hasSixcard = south.SuitCounts.HasCount(6, out var sixCardSuit);
 
-                if (!hasEnoughPoints)
-                {
-                    return;
-                }
+            if (!hasSixcard)
+            {
+                return;
+            }
 
-                var hasSixcard = south.SuitCounts.HasCount(6, out var sixCardSuit);
+            var hasFourCard = south.SuitCounts.HasCount(4, out var fourCardSuit);
+            if (!hasFourCard)
+            {
+                return;
+            }
 
-                if (!hasSixcard)
-                {
-                    return;
-                }
+            simData.HandsPreempted++;
 
-                var hasFourCard = south.SuitCounts.HasCount(4, out var fourCardSuit);
-                if (!hasFourCard)
-                {
-                    return;
-                }
+            if (north.SuitCounts[fourCardSuit] == 1)
+            {
+            }
 
-                simData.HandsPreempted++;
-
-                if (north.SuitCounts[fourCardSuit] == 1)
-                {
-                }
-
-                switch (north.SuitCounts[fourCardSuit])
-                {
-                    case 0:
-                        simData.HandsWithPartnerVoid++;
-                        break;
-                    case 1:
-                        simData.HandsWithPartnerSingleton++;
-                        break;
-                    case > 4:
-                        simData.HandsWithPartnerFit++;
-                        break;
-                }
-            });
-
-            var result = calc.Run(1_000_000);
-
-            data.Add(result);
+            switch (north.SuitCounts[fourCardSuit])
+            {
+                case 0:
+                    simData.HandsWithPartnerVoid++;
+                    break;
+                case 1:
+                    simData.HandsWithPartnerSingleton++;
+                    break;
+                case > 4:
+                    simData.HandsWithPartnerFit++;
+                    break;
+            }
         });
 
-        sw.Stop();
+        var result = calc.Run(10_000_000, threadCount: 12);
 
-        var result = SimData.Merge(data);
+        sw.Stop();
 
         Console.WriteLine($"Simulated a total of {result.TotalHands} hands in {sw.ElapsedMilliseconds / 1000}s:");
         Console.WriteLine($"{result.HandsPreempted} hands were pre-emptable ({(result.HandsPreempted / (double)result.TotalHands) * 100:F3}% of all hands)");
@@ -73,7 +65,7 @@ internal class GaborWackyConvention
         Console.WriteLine($"- {result.HandsWithPartnerFit} partners had a fit the 4-card suit with four or more cards ({result.HandsWithPartnerFit / (double)result.HandsPreempted * 100:F3}% of pre-empted hands)");
     }
 
-    record SimData
+    record SimResult : ISimResult<SimResult>
     {
         public long TotalHands { get; set; }
         public long HandsPreempted { get; set; }
@@ -81,17 +73,21 @@ internal class GaborWackyConvention
         public long HandsWithPartnerSingleton { get; set; }
         public long HandsWithPartnerFit { get; set; }
 
-
-        internal static SimData Merge(List<SimData> data)
+        public static SimResult Merge(SimResult[] results)
         {
             return new()
             {
-                TotalHands = data.Sum(x => x.TotalHands),
-                HandsPreempted = data.Sum(x => x.HandsPreempted),
-                HandsWithPartnerVoid = data.Sum(x => x.HandsWithPartnerVoid),
-                HandsWithPartnerSingleton = data.Sum(x => x.HandsWithPartnerSingleton),
-                HandsWithPartnerFit = data.Sum(x => x.HandsWithPartnerFit),
+                TotalHands = results.Sum(x => x.TotalHands),
+                HandsPreempted = results.Sum(x => x.HandsPreempted),
+                HandsWithPartnerVoid = results.Sum(x => x.HandsWithPartnerVoid),
+                HandsWithPartnerSingleton = results.Sum(x => x.HandsWithPartnerSingleton),
+                HandsWithPartnerFit = results.Sum(x => x.HandsWithPartnerFit),
             };
+        }
+
+        public static SimResult New()
+        {
+            return new();
         }
     }
 }
