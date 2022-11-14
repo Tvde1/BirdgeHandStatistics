@@ -1,7 +1,7 @@
 ﻿using Dealer.Simulations;
 
-GaborWackyConvention.Run();
+await GaborWackyConvention.Run();
 
 Console.WriteLine("-------");
 
-NormalTwoLevelPreempt.Run();
+await NormalTwoLevelPreempt.Run();

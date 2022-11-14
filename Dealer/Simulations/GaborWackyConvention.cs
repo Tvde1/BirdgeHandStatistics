@@ -1,34 +1,29 @@
-﻿using System.Diagnostics;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+﻿namespace Dealer.Simulations;
 
-namespace Dealer.Simulations;
-
-internal class GaborWackyConvention
+internal static class GaborWackyConvention
 {
-    public static void Run()
+    public static async Task Run()
     {
-        var sw = Stopwatch.StartNew();
-
-        var calc = Calculator.Create((HandGenerator deckSim, SimResult simData) =>
+        var calc = SimRunner.Create((HandGenerator deckSim, SimResult simData) =>
         {
             simData.TotalHands++;
-            var (north, _, south, _) = deckSim.CreateHands();
+            var deck = deckSim.ShuffleNewDeck();
 
-            var hasEnoughPoints = south.Points is >= 4 and <= 11;
+            var hasEnoughPoints = deck.South.Points is >= 4 and <= 11;
 
             if (!hasEnoughPoints)
             {
                 return;
             }
 
-            var hasSixcard = south.SuitCounts.HasCount(6, out var sixCardSuit);
+            var hasSixCard = deck.South.SuitCounts.HasCount(6, out _);
 
-            if (!hasSixcard)
+            if (!hasSixCard)
             {
                 return;
             }
 
-            var hasFourCard = south.SuitCounts.HasCount(4, out var fourCardSuit);
+            var hasFourCard = deck.South.SuitCounts.HasCount(4, out var fourCardSuit);
             if (!hasFourCard)
             {
                 return;
@@ -36,11 +31,11 @@ internal class GaborWackyConvention
 
             simData.HandsPreempted++;
 
-            if (north.SuitCounts[fourCardSuit] == 1)
+            if (deck.North.SuitCounts[fourCardSuit] == 1)
             {
             }
 
-            switch (north.SuitCounts[fourCardSuit])
+            switch (deck.North.SuitCounts[fourCardSuit])
             {
                 case 0:
                     simData.HandsWithPartnerVoid++;
@@ -54,15 +49,9 @@ internal class GaborWackyConvention
             }
         });
 
-        var result = calc.Run(10_000_000, threadCount: 12);
-
-        sw.Stop();
-
-        Console.WriteLine($"Simulated a total of {result.TotalHands} hands in {sw.ElapsedMilliseconds / 1000}s:");
-        Console.WriteLine($"{result.HandsPreempted} hands were pre-emptable ({(result.HandsPreempted / (double)result.TotalHands) * 100:F3}% of all hands)");
-        Console.WriteLine($"- {result.HandsWithPartnerVoid} partners had a void in the 4-card suit ({result.HandsWithPartnerVoid / (double)result.HandsPreempted * 100:F3}% of pre-empted hands)");
-        Console.WriteLine($"- {result.HandsWithPartnerSingleton} partners had a singleton in the 4-card suit ({result.HandsWithPartnerSingleton / (double)result.HandsPreempted * 100:F3}% of pre-empted hands)");
-        Console.WriteLine($"- {result.HandsWithPartnerFit} partners had a fit the 4-card suit with four or more cards ({result.HandsWithPartnerFit / (double)result.HandsPreempted * 100:F3}% of pre-empted hands)");
+        var result = await calc.Run(50_000_000, threadCount: 8);
+        
+        result.PrintResult();
     }
 
     record SimResult : ISimResult<SimResult>
@@ -72,8 +61,9 @@ internal class GaborWackyConvention
         public long HandsWithPartnerVoid { get; set; }
         public long HandsWithPartnerSingleton { get; set; }
         public long HandsWithPartnerFit { get; set; }
+        public long ElapsedMilliseconds { get; private init; }
 
-        public static SimResult Merge(SimResult[] results)
+        public static SimResult Merge(ICollection<SimResult> results, long elapsedMilliseconds)
         {
             return new()
             {
@@ -82,7 +72,17 @@ internal class GaborWackyConvention
                 HandsWithPartnerVoid = results.Sum(x => x.HandsWithPartnerVoid),
                 HandsWithPartnerSingleton = results.Sum(x => x.HandsWithPartnerSingleton),
                 HandsWithPartnerFit = results.Sum(x => x.HandsWithPartnerFit),
+                ElapsedMilliseconds = elapsedMilliseconds
             };
+        }
+
+        public void PrintResult()
+        {
+            Console.WriteLine($"Simulated a total of {TotalHands} hands in {ElapsedMilliseconds / 1000}s:");
+            Console.WriteLine($"{HandsPreempted} hands were preemptable ({HandsPreempted / (double)TotalHands * 100:F3}% of all hands)");
+            Console.WriteLine($"- {HandsWithPartnerVoid} partners had a void in the 4-card suit ({HandsWithPartnerVoid / (double)HandsPreempted * 100:F3}% of preempted hands)");
+            Console.WriteLine($"- {HandsWithPartnerSingleton} partners had a singleton in the 4-card suit ({HandsWithPartnerSingleton / (double)HandsPreempted * 100:F3}% of preempted hands)");
+            Console.WriteLine($"- {HandsWithPartnerFit} partners had a fit the 4-card suit with four or more cards ({HandsWithPartnerFit / (double)HandsPreempted * 100:F3}% of preempted hands)");
         }
 
         public static SimResult New()

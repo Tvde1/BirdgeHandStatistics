@@ -3,11 +3,11 @@ using System.Diagnostics;
 
 namespace Dealer.Entities;
 
-struct Hand
+ref struct Hand
 {
-    public Memory<Card> Cards;
+    public Span<Card> Cards;
 
-    public Hand(Memory<Card> cards)
+    public Hand(Span<Card> cards)
     {
         Cards = cards;
         Debug.Assert(cards.Length == 13);
@@ -19,8 +19,9 @@ struct Hand
         byte diamondCount = 0;
         byte clubCount = 0;
 
-        foreach (var c in Cards.Span)
+        for (var index = 0; index < Cards.Length; index++)
         {
+            var c = Cards[index];
             totalPoints += c.Points;
             switch (c.Suit)
             {
@@ -40,7 +41,7 @@ struct Hand
         }
 
         Points = totalPoints;
-        SuitCounts = new(spadeCount, heartCount, diamondCount, clubCount);
+        SuitCounts = new SuitCounts(spadeCount, heartCount, diamondCount, clubCount);
     }
 
     public int Points { get; }

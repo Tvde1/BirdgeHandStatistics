@@ -2,7 +2,7 @@
 
 namespace Dealer.Entities;
 
-public readonly record struct SuitCounts
+public readonly ref struct SuitCounts
 {
     public SuitCounts(byte spades, byte hearts, byte diamonds, byte clubs)
     {
@@ -17,14 +17,14 @@ public readonly record struct SuitCounts
     public byte Diamonds { get; }
     public byte Clubs { get; }
 
-    public void Deconstruct(out byte Longest, out byte SecondLongest, out byte SecondShortest, out byte Shortest)
+    public void Deconstruct(out byte longest, out byte secondLongest, out byte secondShortest, out byte shortest)
     {
         Span<byte> values = stackalloc byte[] { Spades, Hearts, Diamonds, Clubs };
         values.Sort();
-        Shortest = values[0];
-        SecondShortest = values[1];
-        SecondLongest = values[2];
-        Longest = values[3];
+        shortest = values[0];
+        secondShortest = values[1];
+        secondLongest = values[2];
+        longest = values[3];
     }
 
     public int this[Suit suit] => suit switch

@@ -1,26 +1,22 @@
-﻿using System.Diagnostics;
+﻿namespace Dealer.Simulations;
 
-namespace Dealer.Simulations;
-
-internal class NormalTwoLevelPreempt
+internal static class NormalTwoLevelPreempt
 {
-    public static void Run()
+    public static async Task Run()
     {
-        var sw = Stopwatch.StartNew();
-
-        var calc = Calculator.Create((HandGenerator deckSim, SimResult simData) =>
+        var calc = SimRunner.Create((HandGenerator deckSim, SimResult simData) =>
         {
             simData.TotalHands++;
-            var (north, _, south, _) = deckSim.CreateHands();
+            var deck = deckSim.ShuffleNewDeck();
 
-            var hasEnoughPoints = south.Points is >= 6 and <= 10;
+            var hasEnoughPoints = deck.South.Points is >= 6 and <= 10;
 
             if (!hasEnoughPoints)
             {
                 return;
             }
 
-            switch (south.SuitCounts.ToTuple())
+            switch (deck.South.SuitCounts.ToTuple())
             {
                 case (6, 4, 2, 1):
                     simData.SixFourTwoOne++;
@@ -37,26 +33,21 @@ internal class NormalTwoLevelPreempt
             }
         });
 
-        var result = calc.Run(10_000_000, threadCount: 12);
+        var result = await calc.Run(50_000_000, threadCount: 8);
 
-        sw.Stop();
-
-        Console.WriteLine($"Simulated a total of {result.TotalHands} hands in {sw.ElapsedMilliseconds / 1000}s:");
-        Console.WriteLine($"{result.HandsPreempted} hands were pre-emptable ({(result.HandsPreempted / (double)result.TotalHands) * 100:F3}% of all hands)");
-        Console.WriteLine($"- 6421: {result.SixFourTwoOne} ({(result.SixFourTwoOne / (double)result.HandsPreempted) * 100:F3}% of pre-empted hands)");
-        Console.WriteLine($"- 6331: {result.SixThreeThreeOne} ({(result.SixThreeThreeOne / (double)result.HandsPreempted) * 100:F3}% of pre-empted hands)");
-        Console.WriteLine($"- 6322: {result.SixThreeTwoTwo} ({(result.SixThreeTwoTwo / (double)result.HandsPreempted) * 100:F3}% of pre-empted hands)");
+        result.PrintResult();
     }
 
-    record SimResult : ISimResult<SimResult>
+    private record SimResult : ISimResult<SimResult>
     {
         public long TotalHands { get; set; }
         public long HandsPreempted { get; set; }
         public int SixFourTwoOne { get; set; }
         public int SixThreeThreeOne { get; set; }
         public int SixThreeTwoTwo { get; set; }
+        public long ElapsedMilliseconds { get; private init; }
 
-        public static SimResult Merge(SimResult[] results)
+        public static SimResult Merge(ICollection<SimResult> results, long elapsedMilliseconds)
         {
             return new()
             {
@@ -65,7 +56,17 @@ internal class NormalTwoLevelPreempt
                 SixFourTwoOne = results.Sum(x => x.SixFourTwoOne),
                 SixThreeThreeOne = results.Sum(x => x.SixThreeThreeOne),
                 SixThreeTwoTwo = results.Sum(x => x.SixThreeTwoTwo),
+                ElapsedMilliseconds = elapsedMilliseconds,
             };
+        }
+
+        public void PrintResult()
+        {
+            Console.WriteLine($"Simulated a total of {TotalHands} hands in {ElapsedMilliseconds / 1000}s:");
+            Console.WriteLine($"{HandsPreempted} hands were preemptable ({HandsPreempted / (double)TotalHands * 100:F3}% of all hands)");
+            Console.WriteLine($"- 6421: {SixFourTwoOne} ({SixFourTwoOne / (double)HandsPreempted * 100:F3}% of preempted hands)");
+            Console.WriteLine($"- 6331: {SixThreeThreeOne} ({SixThreeThreeOne / (double)HandsPreempted * 100:F3}% of preempted hands)");
+            Console.WriteLine($"- 6322: {SixThreeTwoTwo} ({SixThreeTwoTwo / (double)HandsPreempted * 100:F3}% of preempted hands)");
         }
 
         public static SimResult New()

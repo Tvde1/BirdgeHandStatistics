@@ -3,15 +3,18 @@ using Dealer.Enums;
 
 namespace Dealer;
 
-class HandGenerator
+internal class HandGenerator
 {
-    private Card[] _deck = CreateDeck().ToArray();
-    private readonly Random rng = new Random();
+    private readonly Card[] _deck = CreateDeck().ToArray();
+    private readonly Random _rng = new();
 
-    public (Hand North, Hand East, Hand South, Hand West) CreateHands()
+    public Deck ShuffleNewDeck()
     {
         Shuffle();
-        return (new Hand(_deck[0..13]), new Hand(_deck[13..26]), new Hand(_deck[26..39]), new Hand(_deck[39..52]));
+        return new Deck(new Hand(_deck.AsSpan()[0..13]), 
+            new Hand(_deck.AsSpan()[13..26]),
+            new Hand(_deck.AsSpan()[26..39]),
+            new Hand(_deck.AsSpan()[39..52]));
     }
 
     private static IEnumerable<Card> CreateDeck()
@@ -26,11 +29,27 @@ class HandGenerator
 
     private void Shuffle()
     {
-        int n = _deck.Length;
+        var n = _deck.Length;
         while (n > 1)
         {
-            int k = rng.Next(n--);
+            var k = _rng.Next(n--);
             (_deck[k], _deck[n]) = (_deck[n], _deck[k]);
         }
+    }
+}
+
+internal ref struct Deck
+{
+    public Hand North { get; }
+    public Hand East { get; }
+    public Hand South { get; }
+    public Hand West { get; }
+
+    public Deck(Hand north, Hand east, Hand south, Hand west)
+    {
+        North = north;
+        East = east;
+        South = south;
+        West = west;
     }
 }
